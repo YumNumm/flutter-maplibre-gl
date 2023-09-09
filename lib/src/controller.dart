@@ -92,6 +92,11 @@ class MaplibreMapController extends ChangeNotifier {
       notifyListeners();
     });
 
+    _mapboxGlPlatform.onVisibleRegionChangedPlatform.add((position) {
+      _visibleRegion = position;
+      notifyListeners();
+    });
+
     _mapboxGlPlatform.onCameraIdlePlatform.add((cameraPosition) {
       _isCameraMoving = false;
       if (cameraPosition != null) {
@@ -234,6 +239,7 @@ class MaplibreMapController extends ChangeNotifier {
   /// Will be null, if [MapboxMap.trackCameraPosition] is false.
   CameraPosition? get cameraPosition => _cameraPosition;
   CameraPosition? _cameraPosition;
+  LatLngBounds? _visibleRegion;
 
   final MapLibreGlPlatform _mapboxGlPlatform; //ignore: unused_field
 

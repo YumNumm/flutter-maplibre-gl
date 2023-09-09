@@ -57,6 +57,16 @@ class MethodChannelMaplibreGl extends MapLibreGlPlatform {
             CameraPosition.fromMap(call.arguments['position'])!;
         onCameraMovePlatform(cameraPosition);
         break;
+      // ! customized ! //
+      case 'visibleRegion#onChanged':
+        final southwest = call.arguments['sw'] as List<dynamic>;
+        final northeast = call.arguments['ne'] as List<dynamic>;
+        final bounds = LatLngBounds(
+          southwest: LatLng(southwest[0], southwest[1]),
+          northeast: LatLng(northeast[0], northeast[1]),
+        );
+        onVisibleRegionChangedPlatform(bounds);
+        break;
       case 'camera#onIdle':
         final cameraPosition =
             CameraPosition.fromMap(call.arguments['position']);

@@ -33,6 +33,8 @@ abstract class MapLibreGlPlatform {
 
   final onCameraIdlePlatform = ArgumentCallbacks<CameraPosition?>();
 
+  final onVisibleRegionChangedPlatform = ArgumentCallbacks<LatLngBounds>();
+
   final onMapStyleLoadedPlatform = ArgumentCallbacks<void>();
 
   final onMapClickPlatform = ArgumentCallbacks<Map<String, dynamic>>();
