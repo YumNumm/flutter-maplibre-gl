@@ -1,14 +1,14 @@
 name: maplibre_gl_web
 description: Web platform implementation of maplibre_gl
-version: 0.16.0
-homepage: https://github.com/YumNumm/flutter-maplibre-gl
+version: 0.18.0
+homepage: https://github.com/maplibre/flutter-maplibre-gl
 
 flutter:
   plugin:
     platforms:
       web:
-        pluginClass: MapboxMapPlugin
-        fileName: mapbox_gl_web.dart
+        pluginClass: MapLibreMapPlugin
+        fileName: maplibre_gl_web.dart
 
 dependencies:
   js: ^0.6.7

@@ -388,6 +388,45 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             case let .failure(error): result(error.flutterError)
             }
 
+        case "layer#setProperties":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let layerId = arguments["layerId"] as? String else { return }
+            guard let properties = arguments["properties"] as? [String: String] else { return }
+
+            guard let layer = mapView.style?.layer(withIdentifier: layerId) else {
+                result(FlutterError(
+                    code: "LAYER_NOT_FOUND_ERROR",
+                    message: "Layer " + layerId + "not found",
+                    details: ""
+                ))
+                return
+            }
+
+            //switch depending on the runtime type of layer
+            switch layer {
+            case let lineLayer as MGLLineStyleLayer:
+                LayerPropertyConverter.addLineProperties(lineLayer: lineLayer, properties: properties)
+            case let fillLayer as MGLFillStyleLayer:
+                LayerPropertyConverter.addFillProperties(fillLayer: fillLayer, properties: properties)
+            case let circleLayer as MGLCircleStyleLayer:
+                LayerPropertyConverter.addCircleProperties(circleLayer: circleLayer, properties: properties)
+             case let symbolLayer as MGLSymbolStyleLayer:
+                LayerPropertyConverter.addSymbolProperties(symbolLayer: symbolLayer, properties: properties)
+            case let rasterLayer as MGLRasterStyleLayer:
+                LayerPropertyConverter.addRasterProperties(rasterLayer: rasterLayer, properties: properties)
+            case let hillshadeLayer as MGLHillshadeStyleLayer:
+                LayerPropertyConverter.addHillshadeProperties(hillshadeLayer: hillshadeLayer, properties: properties)
+            default:
+                result(FlutterError(
+                    code: "UNSUPPORTED_LAYER_TYPE",
+                    message: "Layer type not supported",
+                    details: ""
+                ))
+                return
+            }
+
+            result(nil)
+
         case "fillLayer#add":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let sourceId = arguments["sourceId"] as? String else { return }
@@ -539,6 +578,40 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             )
             mapView.style?.addSource(source)
 
+            result(nil)
+        case "style#updateImageSource":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let imageSourceId = arguments["imageSourceId"] as? String else { return }
+            guard let imageSource = mapView.style?
+                .source(withIdentifier: imageSourceId) as? MGLImageSource else { return }
+            let bytes = arguments["bytes"] as? FlutterStandardTypedData
+            if bytes != nil {
+                guard let data = bytes!.data as? Data else { return }
+                guard let image = UIImage(data: data) else { return }
+                imageSource.image = image
+            }
+            let coordinates = arguments["coordinates"] as? [[Double]]
+            if coordinates != nil {
+                let quad = MGLCoordinateQuad(
+                    topLeft: CLLocationCoordinate2D(
+                        latitude: coordinates![0][0],
+                        longitude: coordinates![0][1]
+                    ),
+                    bottomLeft: CLLocationCoordinate2D(
+                        latitude: coordinates![3][0],
+                        longitude: coordinates![3][1]
+                    ),
+                    bottomRight: CLLocationCoordinate2D(
+                        latitude: coordinates![2][0],
+                        longitude: coordinates![2][1]
+                    ),
+                    topRight: CLLocationCoordinate2D(
+                        latitude: coordinates![1][0],
+                        longitude: coordinates![1][1]
+                    )
+                )
+                imageSource.coordinates = quad
+            }
             result(nil)
         case "style#removeSource":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }

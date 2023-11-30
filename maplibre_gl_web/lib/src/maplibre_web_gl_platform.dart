@@ -5,11 +5,11 @@ final _maplibreGlCssUrl =
     'https://cdn.maptiler.com/maplibre-gl-js/v1.13.0-rc.4/mapbox-gl.css';
 
 class MaplibreMapController extends MapLibreGlPlatform
-    implements MapboxMapOptionsSink {
+    implements MapLibreMapOptionsSink {
   late html.DivElement _mapElement;
 
   late Map<String, dynamic> _creationParams;
-  late MapboxMap _map;
+  late MapLibreMap _map;
   bool _mapReady = false;
   dynamic _draggedFeatureId;
   LatLng? _dragOrigin;
@@ -25,6 +25,7 @@ class MaplibreMapController extends MapLibreGlPlatform
 
   String? _navigationControlPosition;
   NavigationControl? _navigationControl;
+  AttributionControl? _attributionControl;
   Timer? lastResizeObserverTimer;
 
   @override
@@ -65,7 +66,7 @@ class MaplibreMapController extends MapLibreGlPlatform
       var camera = _creationParams['initialCameraPosition'];
       _dragEnabled = _creationParams['dragEnabled'] ?? true;
 
-      _map = MapboxMap(
+      _map = MapLibreMap(
         MapOptions(
           container: _mapElement,
           style: 'https://demotiles.maplibre.org/style.json',
@@ -73,6 +74,7 @@ class MaplibreMapController extends MapLibreGlPlatform
           zoom: camera['zoom'],
           bearing: camera['bearing'],
           pitch: camera['tilt'],
+          attributionControl: false, //avoid duplicate control
         ),
       );
       _map.on('load', _onStyleLoaded);
@@ -91,7 +93,7 @@ class MaplibreMapController extends MapLibreGlPlatform
 
       _initResizeObserver();
     }
-    Convert.interpretMapboxMapOptions(_creationParams['options'], this);
+    Convert.interpretMapLibreMapOptions(_creationParams['options'], this);
   }
 
   void _initResizeObserver() {
@@ -187,7 +189,7 @@ class MaplibreMapController extends MapLibreGlPlatform
   Future<CameraPosition?> updateMapOptions(
       Map<String, dynamic> optionsUpdate) async {
     // FIX: why is called indefinitely? (map_ui page)
-    Convert.interpretMapboxMapOptions(optionsUpdate, this);
+    Convert.interpretMapLibreMapOptions(optionsUpdate, this);
     return _getCameraPosition();
   }
 
@@ -592,8 +594,39 @@ class MaplibreMapController extends MapLibreGlPlatform
     }
   }
 
+  void _updateAttributionButton(
+    AttributionButtonPosition position,
+  ) {
+    String? positionString;
+    switch (position) {
+      case AttributionButtonPosition.TopRight:
+        positionString = 'top-right';
+        break;
+      case AttributionButtonPosition.TopLeft:
+        positionString = 'top-left';
+        break;
+      case AttributionButtonPosition.BottomRight:
+        positionString = 'bottom-right';
+        break;
+      case AttributionButtonPosition.BottomLeft:
+        positionString = 'bottom-left';
+        break;
+    }
+
+    _removeAttributionButton();
+    _attributionControl = AttributionControl(AttributionControlOptions());
+    _map.addControl(_attributionControl, positionString);
+  }
+
+  void _removeAttributionButton() {
+    if (_attributionControl != null) {
+      _map.removeControl(_attributionControl);
+      _attributionControl = null;
+    }
+  }
+
   /*
-   *  MapboxMapOptionsSink
+   *  MapLibreMapOptionsSink
    */
   @override
   void setAttributionButtonMargins(int x, int y) {
@@ -632,7 +665,7 @@ class MaplibreMapController extends MapLibreGlPlatform
 
   @override
   void setAttributionButtonAlignment(AttributionButtonPosition position) {
-    print('setAttributionButtonAlignment not available in web');
+    _updateAttributionButton(position);
   }
 
   @override
@@ -848,6 +881,24 @@ class MaplibreMapController extends MapLibreGlPlatform
         enableInteraction: enableInteraction);
   }
 
+  Future<void> setLayerProperties(
+      String layerId, Map<String, dynamic> properties) async {
+    for (final entry in properties.entries) {
+      // Very hacky: because we don't know if the property is a layout
+      // or paint property, we try to set it as both.
+      try {
+        _map.setLayoutProperty(layerId, entry.key, entry.value);
+      } catch (e) {
+        print('Caught exception (usually safe to ignore): $e');
+      }
+      try {
+        _map.setPaintProperty(layerId, entry.key, entry.value);
+      } catch (e) {
+        print('Caught exception (usually safe to ignore): $e');
+      }
+    }
+  }
+
   @override
   Future<void> addSymbolLayer(
       String sourceId, String layerId, Map<String, dynamic> properties,
@@ -1005,6 +1056,12 @@ class MaplibreMapController extends MapLibreGlPlatform
   Future<void> addImageSource(
       String imageSourceId, Uint8List bytes, LatLngQuad coordinates) {
     // TODO: implement addImageSource
+    throw UnimplementedError();
+  }
+
+  Future<void> updateImageSource(
+      String imageSourceId, Uint8List? bytes, LatLngQuad? coordinates) {
+    // TODO: implement updateImageSource
     throw UnimplementedError();
   }
 
