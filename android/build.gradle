@@ -23,9 +23,9 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-
     compileSdkVersion 31
     ndkVersion "20.1.5948944"
+    namespace 'com.mapbox.mapboxgl'
 
     defaultConfig {
         minSdkVersion 21
