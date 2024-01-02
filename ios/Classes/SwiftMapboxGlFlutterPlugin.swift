@@ -3,6 +3,7 @@ import Foundation
 import Mapbox
 import UIKit
 
+@available(iOS 14.0, *)
 public class SwiftMapboxGlFlutterPlugin: NSObject, FlutterPlugin {
     static var downloadOfflineRegionChannelHandler: OfflineChannelHandler? = nil
 

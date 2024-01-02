@@ -5,6 +5,7 @@ class MethodChannelMaplibreGl extends MapLibreGlPlatform {
   static bool useHybridComposition = false;
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
+    print(call);
     switch (call.method) {
       case 'infoWindow#onTap':
         final String? symbolId = call.arguments['symbol'];

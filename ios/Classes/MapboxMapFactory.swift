@@ -1,5 +1,6 @@
 import Flutter
 
+@available(iOS 14.0, *)
 class MapboxMapFactory: NSObject, FlutterPlatformViewFactory {
     var registrar: FlutterPluginRegistrar
 

@@ -1,6 +1,8 @@
 import Flutter
+import os
 import Mapbox
 
+@available(iOS 14.0, *)
 class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, MapboxMapOptionsSink,
     UIGestureRecognizerDelegate
 {
@@ -22,6 +24,8 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     private var trackCameraPosition = false
     private var myLocationEnabled = false
     private var scrollingEnabled = true
+    
+    private var logger = Logger.init()
 
     private var interactiveFeatureLayerIds = Set<String>()
     private var addedShapesByLayer = [String: MGLShape]()
@@ -71,6 +75,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             longPress.require(toFail: recognizer)
         }
         mapView.addGestureRecognizer(longPress)
+        
         
         if let args = args as? [String: Any] {
             Convert.interpretMapboxMapOptions(options: args["options"], delegate: self)
@@ -997,6 +1002,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         let end = sender.state == UIGestureRecognizer.State.ended
         let point = sender.location(in: mapView)
         let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
+        logger.info("handleMapPan \(coordinate.latitude), \(coordinate.longitude)")
 
         if dragFeature == nil, began, sender.numberOfTouches == 1,
            let feature = firstFeatureOnLayers(at: point),
@@ -1442,7 +1448,10 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     }
 
     func mapViewRegionIsChanging(_ mapView: MGLMapView) {
+        // log
         if !trackCameraPosition { return }
+        let position = getCamera()?.toDict(mapView: mapView)
+        logger.debug("mapViewRegionIsChanging: \(String(describing: position))")
         if let channel = channel {
             channel.invokeMethod("camera#onMove", arguments: [
                 "position": getCamera()?.toDict(mapView: mapView),
