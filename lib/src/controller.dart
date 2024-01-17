@@ -491,6 +491,46 @@ class MaplibreMapController extends ChangeNotifier {
     );
   }
 
+  /// Add a fill extrusion layer to the map with the given properties
+  ///
+  /// Consider using [addLayer] for an unified layer api.
+  ///
+  /// The returned [Future] completes after the change has been made on the
+  /// platform side.
+  ///
+  /// Setting [belowLayerId] adds the new layer below the given id.
+  /// If [enableInteraction] is set the layer is considered for touch or drag
+  /// events. [sourceLayer] is used to selected a specific source layer from
+  /// Vector source.
+  /// [minzoom] is the minimum (inclusive) zoom level at which the layer is
+  /// visible.
+  /// [maxzoom] is the maximum (exclusive) zoom level at which the layer is
+  /// visible.
+  /// [filter] determines which features should be rendered in the layer.
+  /// Filters are written as [expressions].
+  ///
+  /// [expressions]: https://maplibre.org/maplibre-style-spec/expressions/
+  Future<void> addFillExtrusionLayer(
+      String sourceId, String layerId, FillExtrusionLayerProperties properties,
+      {String? belowLayerId,
+      String? sourceLayer,
+      double? minzoom,
+      double? maxzoom,
+      dynamic filter,
+      bool enableInteraction = true}) async {
+    await _maplibreGlPlatform.addFillExtrusionLayer(
+      sourceId,
+      layerId,
+      properties.toJson(),
+      belowLayerId: belowLayerId,
+      sourceLayer: sourceLayer,
+      minzoom: minzoom,
+      maxzoom: maxzoom,
+      filter: filter,
+      enableInteraction: enableInteraction,
+    );
+  }
+
   /// Add a circle layer to the map with the given properties
   ///
   /// Consider using [addLayer] for an unified layer api.
@@ -583,6 +623,37 @@ class MaplibreMapController extends ChangeNotifier {
       double? minzoom,
       double? maxzoom}) async {
     await _maplibreGlPlatform.addHillshadeLayer(
+      sourceId,
+      layerId,
+      properties.toJson(),
+      belowLayerId: belowLayerId,
+      sourceLayer: sourceLayer,
+      minzoom: minzoom,
+      maxzoom: maxzoom,
+    );
+  }
+
+  /// Add a heatmap layer to the map with the given properties
+  ///
+  /// Consider using [addLayer] for an unified layer api.
+  ///
+  /// The returned [Future] completes after the change has been made on the
+  /// platform side.
+  ///
+  /// Setting [belowLayerId] adds the new layer below the given id.
+  /// [sourceLayer] is used to selected a specific source layer from
+  /// Raster source.
+  /// [minzoom] is the minimum (inclusive) zoom level at which the layer is
+  /// visible.
+  /// [maxzoom] is the maximum (exclusive) zoom level at which the layer is
+  /// visible.
+  Future<void> addHeatmapLayer(
+      String sourceId, String layerId, HeatmapLayerProperties properties,
+      {String? belowLayerId,
+      String? sourceLayer,
+      double? minzoom,
+      double? maxzoom}) async {
+    await _maplibreGlPlatform.addHeatmapLayer(
       sourceId,
       layerId,
       properties.toJson(),
@@ -1025,20 +1096,24 @@ class MaplibreMapController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Query rendered features at a point in screen cooridnates
+  /// Query rendered (i.e. visible) features at a point in screen coordinates
   Future<List> queryRenderedFeatures(
       Point<double> point, List<String> layerIds, List<Object>? filter) async {
     return _maplibreGlPlatform.queryRenderedFeatures(point, layerIds, filter);
   }
 
-  /// Query rendered features in a Rect in screen coordinates
+  /// Query rendered (i.e. visible) features in a Rect in screen coordinates
   Future<List> queryRenderedFeaturesInRect(
       Rect rect, List<String> layerIds, String? filter) async {
     return _maplibreGlPlatform.queryRenderedFeaturesInRect(
         rect, layerIds, filter);
   }
 
-  /// Query rendered features at a point in screen coordinates
+  /// Query features contained in the source with the specified [sourceId].
+  ///
+  /// In contrast to [queryRenderedFeatures], this returns all features in the source,
+  /// regardless of whether they are currently rendered by the current style.
+  ///
   /// Note: On web, this will probably only work for GeoJson source, not for vector tiles
   Future<List> querySourceFeatures(
       String sourceId, String? sourceLayerId, List<Object>? filter) async {
@@ -1215,6 +1290,10 @@ class MaplibreMapController extends ChangeNotifier {
     return _maplibreGlPlatform.addSource(sourceid, properties);
   }
 
+  /// Pans and zooms the map to contain its visible area within the specified geographical bounds.
+  ///
+  /// Also consider using [animateCamera] or [moveCamera], which allow you to set camera bounds (with different padding values per side)
+  /// as well as other camera properties.
   Future setCameraBounds({
     required double west,
     required double north,
@@ -1267,6 +1346,12 @@ class MaplibreMapController extends ChangeNotifier {
           minzoom: minzoom,
           maxzoom: maxzoom,
           filter: filter);
+    } else if (properties is FillExtrusionLayerProperties) {
+      addFillExtrusionLayer(sourceId, layerId, properties,
+          belowLayerId: belowLayerId,
+          sourceLayer: sourceLayer,
+          minzoom: minzoom,
+          maxzoom: maxzoom);
     } else if (properties is LineLayerProperties) {
       addLineLayer(sourceId, layerId, properties,
           belowLayerId: belowLayerId,
@@ -1305,6 +1390,12 @@ class MaplibreMapController extends ChangeNotifier {
         throw UnimplementedError("HillShadeLayer does not support filter");
       }
       addHillshadeLayer(sourceId, layerId, properties,
+          belowLayerId: belowLayerId,
+          sourceLayer: sourceLayer,
+          minzoom: minzoom,
+          maxzoom: maxzoom);
+    } else if (properties is HeatmapLayerProperties) {
+      addHeatmapLayer(sourceId, layerId, properties,
           belowLayerId: belowLayerId,
           sourceLayer: sourceLayer,
           minzoom: minzoom,
