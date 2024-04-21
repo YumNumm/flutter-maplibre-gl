@@ -162,26 +162,22 @@ class MethodChannelMaplibreGl extends MapLibreGlPlatform {
               hitTestBehavior: PlatformViewHitTestBehavior.opaque,
             );
           },
-          onCreatePlatformView: (PlatformViewCreationParams params) {
-            final controller = PlatformViewsService.initAndroidView(
-              id: params.id,
-              viewType: 'plugins.flutter.io/mapbox_gl',
-              layoutDirection: TextDirection.ltr,
-              creationParams: creationParams,
-              creationParamsCodec: const StandardMessageCodec(),
-              onFocus: () => params.onFocusChanged(true),
-            );
-
-            controller.addOnPlatformViewCreatedListener(
-              params.onPlatformViewCreated,
-            );
-            controller.addOnPlatformViewCreatedListener(
-              onPlatformViewCreated,
-            );
-
-            controller.create();
-            return controller;
-          },
+          onCreatePlatformView: (PlatformViewCreationParams params) =>
+              PlatformViewsService.initSurfaceAndroidView(
+            id: params.id,
+            viewType: 'plugins.flutter.io/mapbox_gl',
+            layoutDirection: TextDirection.ltr,
+            creationParams: creationParams,
+            creationParamsCodec: const StandardMessageCodec(),
+            onFocus: () => params.onFocusChanged(true),
+          )
+                ..addOnPlatformViewCreatedListener(
+                  params.onPlatformViewCreated,
+                )
+                ..addOnPlatformViewCreatedListener(
+                  onPlatformViewCreated,
+                )
+                ..create(),
         );
       } else {
         return AndroidView(
