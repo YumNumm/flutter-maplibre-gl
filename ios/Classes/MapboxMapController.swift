@@ -2,6 +2,7 @@ import Flutter
 import os
 import MapLibre
 
+@available(iOS 14.0, *)
 class MapboxMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, MapboxMapOptionsSink,
     UIGestureRecognizerDelegate
 {
