@@ -1,15 +1,13 @@
 import Flutter
-import os
-import Mapbox
+import MapLibre
 
-@available(iOS 14.0, *)
-class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, MapboxMapOptionsSink,
+class MapboxMapController: NSObject, FlutterPlatformView, MLNMapViewDelegate, MapboxMapOptionsSink,
     UIGestureRecognizerDelegate
 {
     private var registrar: FlutterPluginRegistrar
     private var channel: FlutterMethodChannel?
 
-    private var mapView: MGLMapView
+    private var mapView: MLNMapView
     private var isMapReady = false
     private var dragEnabled = true
     private var isFirstStyleLoad = true
@@ -17,18 +15,18 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     private var mapReadyResult: FlutterResult?
     private var previousDragCoordinate: CLLocationCoordinate2D?
     private var originDragCoordinate: CLLocationCoordinate2D?
-    private var dragFeature: MGLFeature?
+    private var dragFeature: MLNFeature?
 
     private var initialTilt: CGFloat?
-    private var cameraTargetBounds: MGLCoordinateBounds?
+    private var cameraTargetBounds: MLNCoordinateBounds?
     private var trackCameraPosition = false
     private var myLocationEnabled = false
     private var scrollingEnabled = true
-    
+
     private var logger = Logger.init()
 
     private var interactiveFeatureLayerIds = Set<String>()
-    private var addedShapesByLayer = [String: MGLShape]()
+    private var addedShapesByLayer = [String: MLNShape]()
 
     func view() -> UIView {
         return mapView
@@ -40,7 +38,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         arguments args: Any?,
         registrar: FlutterPluginRegistrar
     ) {
-        mapView = MGLMapView(frame: frame)
+        mapView = MLNMapView(frame: frame)
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         mapView.logoView.isHidden = true
         self.registrar = registrar
@@ -75,13 +73,13 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             longPress.require(toFail: recognizer)
         }
         var longPressRecognizerAdded = false
-        
-        
+
+
         if let args = args as? [String: Any] {
-            
+
             Convert.interpretMapboxMapOptions(options: args["options"], delegate: self)
             if let initialCameraPosition = args["initialCameraPosition"] as? [String: Any],
-               let camera = MGLMapCamera.fromDict(initialCameraPosition, mapView: mapView),
+               let camera = MLNMapCamera.fromDict(initialCameraPosition, mapView: mapView),
                let zoom = initialCameraPosition["zoom"] as? Double
             {
                 mapView.setCenter(
@@ -90,9 +88,6 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                     direction: camera.heading,
                     animated: false
                 )
-                if let bounds = cameraTargetBounds {
-                    mapView.setLatLngBounds(bounds)
-                }
                 initialTilt = camera.pitch
             }
             // if let onAttributionClickOverride = args["onAttributionClickOverride"] as? Bool {
@@ -158,7 +153,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 result(nil)
             }
         case "map#invalidateAmbientCache":
-            MGLOfflineStorage.shared.invalidateAmbientCache {
+            MLNOfflineStorage.shared.invalidateAmbientCache {
                 error in
                 if let error = error {
                     result(error)
@@ -169,7 +164,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         case "map#updateMyLocationTrackingMode":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             if let myLocationTrackingMode = arguments["mode"] as? UInt,
-               let trackingMode = MGLUserTrackingMode(rawValue: myLocationTrackingMode)
+               let trackingMode = MLNUserTrackingMode(rawValue: myLocationTrackingMode)
             {
                 setMyLocationTrackingMode(myLocationTrackingMode: trackingMode)
             }
@@ -178,7 +173,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             if let langStr = Locale.current.languageCode {
                 setMapLanguage(language: langStr)
             }
-            
+
             result(nil)
         case "map#updateContentInsets":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
@@ -225,7 +220,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 filterExpression = NSPredicate(mglJSONObject: filter)
             }
             var reply = [String: NSObject]()
-            var features: [MGLFeature] = []
+            var features: [MLNFeature] = []
             if let x = arguments["x"] as? Double, let y = arguments["y"] as? Double {
                 features = mapView.visibleFeatures(
                     at: CGPoint(x: x, y: y),
@@ -259,10 +254,10 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         case "map#setTelemetryEnabled":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             let telemetryEnabled = arguments["enabled"] as? Bool
-            UserDefaults.standard.set(telemetryEnabled, forKey: "MGLMapboxMetricsEnabled")
+            UserDefaults.standard.set(telemetryEnabled, forKey: "MLNMapboxMetricsEnabled")
             result(nil)
         case "map#getTelemetryEnabled":
-            let telemetryEnabled = UserDefaults.standard.bool(forKey: "MGLMapboxMetricsEnabled")
+            let telemetryEnabled = UserDefaults.standard.bool(forKey: "MLNMapboxMetricsEnabled")
             result(telemetryEnabled)
         case "map#getVisibleRegion":
             var reply = [String: NSObject]()
@@ -324,7 +319,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         case "camera#move":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let cameraUpdate = arguments["cameraUpdate"] as? [Any] else { return }
-            
+
             if let camera = Convert.parseCameraUpdate(cameraUpdate: cameraUpdate, mapView: mapView) {
                 mapView.setCamera(camera, animated: false)
             }
@@ -333,12 +328,12 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let cameraUpdate = arguments["cameraUpdate"] as? [Any] else { return }
             guard let camera = Convert.parseCameraUpdate(cameraUpdate: cameraUpdate, mapView: mapView) else { return }
-            
-            
+
+
             let completion = {
                 result(nil)
             }
-            
+
             if let duration = arguments["duration"] as? TimeInterval {
                 if let padding = Convert.parseLatLngBoundsPadding(cameraUpdate) {
                     mapView.fly(to: camera, edgePadding: padding, withDuration: duration / 1000, completionHandler: completion)
@@ -421,17 +416,17 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
 
             //switch depending on the runtime type of layer
             switch layer {
-            case let lineLayer as MGLLineStyleLayer:
+            case let lineLayer as MLNLineStyleLayer:
                 LayerPropertyConverter.addLineProperties(lineLayer: lineLayer, properties: properties)
-            case let fillLayer as MGLFillStyleLayer:
+            case let fillLayer as MLNFillStyleLayer:
                 LayerPropertyConverter.addFillProperties(fillLayer: fillLayer, properties: properties)
-            case let circleLayer as MGLCircleStyleLayer:
+            case let circleLayer as MLNCircleStyleLayer:
                 LayerPropertyConverter.addCircleProperties(circleLayer: circleLayer, properties: properties)
-             case let symbolLayer as MGLSymbolStyleLayer:
+             case let symbolLayer as MLNSymbolStyleLayer:
                 LayerPropertyConverter.addSymbolProperties(symbolLayer: symbolLayer, properties: properties)
-            case let rasterLayer as MGLRasterStyleLayer:
+            case let rasterLayer as MLNRasterStyleLayer:
                 LayerPropertyConverter.addRasterProperties(rasterLayer: rasterLayer, properties: properties)
-            case let hillshadeLayer as MGLHillshadeStyleLayer:
+            case let hillshadeLayer as MLNHillshadeStyleLayer:
                 LayerPropertyConverter.addHillshadeProperties(hillshadeLayer: hillshadeLayer, properties: properties)
             default:
                 result(FlutterError(
@@ -545,7 +540,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 properties: properties
             )
             result(nil)
-        
+
         case "heatmapLayer#add":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let sourceId = arguments["sourceId"] as? String else { return }
@@ -605,7 +600,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             guard let image = UIImage(data: data) else { return }
 
             guard let coordinates = arguments["coordinates"] as? [[Double]] else { return }
-            let quad = MGLCoordinateQuad(
+            let quad = MLNCoordinateQuad(
                 topLeft: CLLocationCoordinate2D(
                     latitude: coordinates[0][0],
                     longitude: coordinates[0][1]
@@ -634,7 +629,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 return
             }
 
-            let source = MGLImageSource(
+            let source = MLNImageSource(
                 identifier: imageSourceId,
                 coordinateQuad: quad,
                 image: image
@@ -646,7 +641,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let imageSourceId = arguments["imageSourceId"] as? String else { return }
             guard let imageSource = mapView.style?
-                .source(withIdentifier: imageSourceId) as? MGLImageSource else { return }
+                .source(withIdentifier: imageSourceId) as? MLNImageSource else { return }
             let bytes = arguments["bytes"] as? FlutterStandardTypedData
             if bytes != nil {
                 guard let data = bytes!.data as? Data else { return }
@@ -655,7 +650,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             }
             let coordinates = arguments["coordinates"] as? [[Double]]
             if coordinates != nil {
-                let quad = MGLCoordinateQuad(
+                let quad = MLNCoordinateQuad(
                     topLeft: CLLocationCoordinate2D(
                         latitude: coordinates![0][0],
                         longitude: coordinates![0][1]
@@ -711,7 +706,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 return
             }
 
-            let layer = MGLRasterStyleLayer(identifier: imageLayerId, source: source)
+            let layer = MLNRasterStyleLayer(identifier: imageLayerId, source: source)
 
             if let minzoom = minzoom {
                 layer.minimumZoomLevel = Float(minzoom)
@@ -759,7 +754,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 return
             }
 
-            let layer = MGLRasterStyleLayer(identifier: imageLayerId, source: source)
+            let layer = MLNRasterStyleLayer(identifier: imageLayerId, source: source)
 
             if let minzoom = minzoom {
                 layer.minimumZoomLevel = Float(minzoom)
@@ -792,7 +787,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
 
             let southwest = CLLocationCoordinate2D(latitude: south, longitude: west)
             let northeast = CLLocationCoordinate2D(latitude: north, longitude: east)
-            let bounds = MGLCoordinateBounds(sw: southwest, ne: northeast)
+            let bounds = MLNCoordinateBounds(sw: southwest, ne: northeast)
             mapView.setVisibleCoordinateBounds(bounds, edgePadding: UIEdgeInsets(top: padding,
                 left: padding, bottom: padding, right: padding) , animated: true)
             result(nil)
@@ -848,11 +843,11 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             }
             layer.isVisible = visible
             result(nil)
-            
+
         case "map#querySourceFeatures":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let sourceId = arguments["sourceId"] as? String else { return }
-            
+
             var sourceLayerId = Set<String>()
             if let layerId = arguments["sourceLayerId"] as? String {
                 sourceLayerId.insert(layerId)
@@ -861,19 +856,19 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             if let filter = arguments["filter"] as? [Any] {
                 filterExpression = NSPredicate(mglJSONObject: filter)
             }
-            
+
             var reply = [String: NSObject]()
-            var features: [MGLFeature] = []
-            
+            var features: [MLNFeature] = []
+
             guard let style = mapView.style else { return }
             if let source = style.source(withIdentifier: sourceId) {
-                if let vectorSource = source as? MGLVectorTileSource {
+                if let vectorSource = source as? MLNVectorTileSource {
                     features = vectorSource.features(sourceLayerIdentifiers: sourceLayerId, predicate: filterExpression)
-                } else if let shapeSource = source as? MGLShapeSource {
+                } else if let shapeSource = source as? MLNShapeSource {
                     features = shapeSource.features(matching: filterExpression)
                 }
             }
-            
+
             var featuresJson = [String]()
             for feature in features {
                 let dictionary = feature.geoJSONDictionary()
@@ -891,11 +886,11 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
 
         case "style#getLayerIds":
             var layerIds = [String]()
-            
+
             guard let style = mapView.style else { return }
-            
+
             style.layers.forEach { layer in layerIds.append(layer.identifier) }
-            
+
             var reply = [String: NSObject]()
             reply["layers"] = layerIds as NSObject
             result(reply)
@@ -910,18 +905,18 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             var reply = [String: NSObject]()
             reply["sources"] = sourceIds as NSObject
             result(reply)
-            
+
         case "style#getFilter":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let layerId = arguments["layerId"] as? String else { return }
-            
+
             guard let style = mapView.style else { return }
             guard let layer = style.layer(withIdentifier: layerId) else { return }
-            
+
             var currentLayerFilter : String = ""
-            if let vectorLayer = layer as? MGLVectorStyleLayer {
+            if let vectorLayer = layer as? MLNVectorStyleLayer {
                 if let layerFilter = vectorLayer.predicate {
-                    
+
                     let jsonExpression = layerFilter.mgl_jsonExpressionObject
                     if let data = try? JSONSerialization.data(withJSONObject: jsonExpression, options: []) {
                         currentLayerFilter = String(data: data, encoding: String.Encoding.utf8) ?? ""
@@ -933,11 +928,11 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 ).flutterError)
                 return;
             }
-            
+
             var reply = [String: NSObject]()
             reply["filter"] = currentLayerFilter as NSObject
             result(reply)
-            
+
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -972,10 +967,10 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         mapView.showsUserLocation = myLocationEnabled
     }
 
-    private func getCamera() -> MGLMapCamera? {
+    private func getCamera() -> MLNMapCamera? {
         return trackCameraPosition ? mapView.camera : nil
     }
-    
+
     private func setMapLanguage(language: String) {
         self.mapView.setMapLanguage(language)
     }
@@ -983,7 +978,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     /*
      *  Scan layers from top to bottom and return the first matching feature
      */
-    private func firstFeatureOnLayers(at: CGPoint) -> MGLFeature? {
+    private func firstFeatureOnLayers(at: CGPoint) -> MLNFeature? {
         guard let style = mapView.style else { return nil }
 
         // get layers in order (interactiveFeatureLayerIds is unordered)
@@ -1120,7 +1115,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
      * Override the attribution button's click target to handle the event locally.
      * Called if the application supplies an onAttributionClick handler.
      */
-    func setupAttribution(_ mapView: MGLMapView) {
+    func setupAttribution(_ mapView: MLNMapView) {
         mapView.attributionButton.removeTarget(
             mapView,
             action: #selector(mapView.showAttribution),
@@ -1142,9 +1137,9 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     } */
 
     /*
-     *  MGLMapViewDelegate
+     *  MLNMapViewDelegate
      */
-    func mapView(_ mapView: MGLMapView, didFinishLoading _: MGLStyle) {
+    func mapView(_ mapView: MLNMapView, didFinishLoading _: MLNStyle) {
         isMapReady = true
         updateMyLocationEnabled()
 
@@ -1172,11 +1167,11 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     }
 
     // handle missing images
-    func mapView(_: MGLMapView, didFailToLoadImage name: String) -> UIImage? {
+    func mapView(_: MLNMapView, didFailToLoadImage name: String) -> UIImage? {
         return loadIconImage(name: name)
     }
 
-    func mapView(_: MGLMapView, didUpdate userLocation: MGLUserLocation?) {
+    func mapView(_: MLNMapView, didUpdate userLocation: MLNUserLocation?) {
         if let channel = channel, let userLocation = userLocation,
            let location = userLocation.location
         {
@@ -1187,7 +1182,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         }
     }
 
-    func mapView(_: MGLMapView, didChange mode: MGLUserTrackingMode, animated _: Bool) {
+    func mapView(_: MLNMapView, didChange mode: MLNUserTrackingMode, animated _: Bool) {
         if let channel = channel {
             channel.invokeMethod("map#onCameraTrackingChanged", arguments: ["mode": mode.rawValue])
             if mode == .none {
@@ -1209,7 +1204,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) -> Result<Void, MethodCallError> {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLSymbolStyleLayer(identifier: layerId, source: source)
+                let layer = MLNSymbolStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addSymbolProperties(
                     symbolLayer: layer,
                     properties: properties
@@ -1254,7 +1249,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) -> Result<Void, MethodCallError> {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLLineStyleLayer(identifier: layerId, source: source)
+                let layer = MLNLineStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addLineProperties(lineLayer: layer, properties: properties)
                 if let sourceLayerIdentifier = sourceLayerIdentifier {
                     layer.sourceLayerIdentifier = sourceLayerIdentifier
@@ -1296,7 +1291,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) -> Result<Void, MethodCallError> {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLFillStyleLayer(identifier: layerId, source: source)
+                let layer = MLNFillStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addFillProperties(fillLayer: layer, properties: properties)
                 if let sourceLayerIdentifier = sourceLayerIdentifier {
                     layer.sourceLayerIdentifier = sourceLayerIdentifier
@@ -1338,7 +1333,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) -> Result<Void, MethodCallError> {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLFillExtrusionStyleLayer(identifier: layerId, source: source)
+                let layer = MLNFillExtrusionStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addFillExtrusionProperties(
                     fillExtrusionLayer: layer,
                     properties: properties
@@ -1383,7 +1378,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) -> Result<Void, MethodCallError> {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLCircleStyleLayer(identifier: layerId, source: source)
+                let layer = MLNCircleStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addCircleProperties(
                     circleLayer: layer,
                     properties: properties
@@ -1415,7 +1410,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         return .success(())
     }
 
-    func setFilter(_ layer: MGLStyleLayer, _ filter: String) -> Result<Void, MethodCallError> {
+    func setFilter(_ layer: MLNStyleLayer, _ filter: String) -> Result<Void, MethodCallError> {
         do {
             let filter = try JSONSerialization.jsonObject(
                 with: filter.data(using: .utf8)!,
@@ -1425,7 +1420,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 return .success(())
             }
             let predicate = NSPredicate(mglJSONObject: filter)
-            if let layer = layer as? MGLVectorStyleLayer {
+            if let layer = layer as? MLNVectorStyleLayer {
                 layer.predicate = predicate
             } else {
                 return .failure(MethodCallError.invalidLayerType(
@@ -1448,7 +1443,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLHillshadeStyleLayer(identifier: layerId, source: source)
+                let layer = MLNHillshadeStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addHillshadeProperties(
                     hillshadeLayer: layer,
                     properties: properties
@@ -1478,7 +1473,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLHeatmapStyleLayer(identifier: layerId, source: source)
+                let layer = MLNHeatmapStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addHeatmapProperties(
                     heatmapLayer: layer,
                     properties: properties
@@ -1508,7 +1503,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     ) {
         if let style = mapView.style {
             if let source = style.source(withIdentifier: sourceId) {
-                let layer = MGLRasterStyleLayer(identifier: layerId, source: source)
+                let layer = MLNRasterStyleLayer(identifier: layerId, source: source)
                 LayerPropertyConverter.addRasterProperties(
                     rasterLayer: layer,
                     properties: properties
@@ -1530,7 +1525,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
 
     func addSource(sourceId: String, properties: [String: Any]) {
         if let style = mapView.style, let type = properties["type"] as? String {
-            var source: MGLSource?
+            var source: MLNSource?
 
             switch type {
             case "vector":
@@ -1568,20 +1563,19 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         }
     }
 
-    func mapViewDidBecomeIdle(_: MGLMapView) {
+    func mapViewDidBecomeIdle(_: MLNMapView) {
         if let channel = channel {
             channel.invokeMethod("map#onIdle", arguments: [])
         }
     }
 
-    func mapView(_: MGLMapView, regionWillChangeAnimated _: Bool) {
+    func mapView(_: MLNMapView, regionWillChangeAnimated _: Bool) {
         if let channel = channel {
             channel.invokeMethod("camera#onMoveStarted", arguments: [])
         }
     }
 
-    func mapViewRegionIsChanging(_ mapView: MGLMapView) {
-        // log
+    func mapViewRegionIsChanging(_ mapView: MLNMapView) {
         if !trackCameraPosition { return }
         let position = getCamera()?.toDict(mapView: mapView)
         logger.debug("mapViewRegionIsChanging: \(String(describing: position))")
@@ -1592,7 +1586,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         }
     }
 
-    func mapView(_ mapView: MGLMapView, regionDidChangeAnimated _: Bool) {
+    func mapView(_ mapView: MLNMapView, regionDidChangeAnimated _: Bool) {
         let arguments = trackCameraPosition ? [
             "position": getCamera()?.toDict(mapView: mapView)
         ] : [:]
@@ -1603,11 +1597,11 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
 
     func addSourceGeojson(sourceId: String, geojson: String) {
         do {
-            let parsed = try MGLShape(
+            let parsed = try MLNShape(
                 data: geojson.data(using: .utf8)!,
                 encoding: String.Encoding.utf8.rawValue
             )
-            let source = MGLShapeSource(identifier: sourceId, shape: parsed, options: [:])
+            let source = MLNShapeSource(identifier: sourceId, shape: parsed, options: [:])
             addedShapesByLayer[sourceId] = parsed
             mapView.style?.addSource(source)
             print(source)
@@ -1616,11 +1610,11 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
 
     func setSource(sourceId: String, geojson: String) {
         do {
-            let parsed = try MGLShape(
+            let parsed = try MLNShape(
                 data: geojson.data(using: .utf8)!,
                 encoding: String.Encoding.utf8.rawValue
             )
-            if let source = mapView.style?.source(withIdentifier: sourceId) as? MGLShapeSource {
+            if let source = mapView.style?.source(withIdentifier: sourceId) as? MLNShapeSource {
                 addedShapesByLayer[sourceId] = parsed
                 source.shape = parsed
             }
@@ -1629,13 +1623,13 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
 
     func setFeature(sourceId: String, geojsonFeature: String) {
         do {
-            let newShape = try MGLShape(
+            let newShape = try MLNShape(
                 data: geojsonFeature.data(using: .utf8)!,
                 encoding: String.Encoding.utf8.rawValue
             )
-            if let source = mapView.style?.source(withIdentifier: sourceId) as? MGLShapeSource,
-               let shape = addedShapesByLayer[sourceId] as? MGLShapeCollectionFeature,
-               let feature = newShape as? MGLShape & MGLFeature
+            if let source = mapView.style?.source(withIdentifier: sourceId) as? MLNShapeSource,
+               let shape = addedShapesByLayer[sourceId] as? MLNShapeCollectionFeature,
+               let feature = newShape as? MLNShape & MLNFeature
             {
                 if let index = shape.shapes
                     .firstIndex(where: {
@@ -1652,7 +1646,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                     var shapes = shape.shapes
                     shapes[index] = feature
 
-                    source.shape = MGLShapeCollectionFeature(shapes: shapes)
+                    source.shape = MLNShapeCollectionFeature(shapes: shapes)
                 }
 
                 addedShapesByLayer[sourceId] = source.shape
@@ -1664,7 +1658,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     /*
      *  MapboxMapOptionsSink
      */
-    func setCameraTargetBounds(bounds: MGLCoordinateBounds?) {
+    func setCameraTargetBounds(bounds: MLNCoordinateBounds?) {
         cameraTargetBounds = bounds
     }
 
@@ -1738,7 +1732,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         updateMyLocationEnabled()
     }
 
-    func setMyLocationTrackingMode(myLocationTrackingMode: MGLUserTrackingMode) {
+    func setMyLocationTrackingMode(myLocationTrackingMode: MLNUserTrackingMode) {
         mapView.userTrackingMode = myLocationTrackingMode
     }
 
@@ -1757,7 +1751,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         mapView.logoViewMargins = CGPoint(x: x, y: y)
     }
 
-    func setCompassViewPosition(position: MGLOrnamentPosition) {
+    func setCompassViewPosition(position: MLNOrnamentPosition) {
         mapView.compassViewPosition = position
     }
 
@@ -1769,7 +1763,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         mapView.attributionButtonMargins = CGPoint(x: x, y: y)
     }
 
-    func setAttributionButtonPosition(position: MGLOrnamentPosition) {
+    func setAttributionButtonPosition(position: MLNOrnamentPosition) {
         mapView.attributionButtonPosition = position
     }
 }
