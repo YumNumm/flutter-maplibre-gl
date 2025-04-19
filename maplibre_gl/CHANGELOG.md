@@ -22,7 +22,7 @@
 
 * BREAKING: `onFeatureTap` returns the `layerId` (#475).
 * Changed iOS package name to support Swift Package Manager (#467).
-* Move the `maplibre_gl` package to a subdirectory of the repository and add 
+* Move the `maplibre_gl` package to a subdirectory of the repository and add
   melos to orchestrate all packages (#453).
 
 ### Removed
@@ -43,7 +43,7 @@ If you notice any build errors, please make sure to run `flutter clean`.
 
 * All Dart enums have been migrated from mixed cases to lower camelcase
   according to the `camel_case_types` lint rule.
-* Move `MapLibreStyles` to the main `maplibre_gl` package. You can now use the  
+* Move `MapLibreStyles` to the main `maplibre_gl` package. You can now use the
   demo style without adding `maplibre_gl_platform_interface` as a dependency.
 * Updated maplibre-native for ios to v6.5.0. This introduces the new
   iOS Metal renderer and the OpenGL ES renderer now uses OpenGL ES 3.0. Only
@@ -56,7 +56,7 @@ If you notice any build errors, please make sure to run `flutter clean`.
   for more information.
 * Renamed the method channel to `plugins.flutter.io/maplibre_gl_*` in all
   packages.
-* Renamed "Maplibre" to "MapLibre" to be in line with maplibre-native 
+* Renamed "Maplibre" to "MapLibre" to be in line with maplibre-native
   (affects for example the classes `MaplibreMap` and `MaplibreMapController`).
 
 ### Changes
